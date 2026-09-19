@@ -1,0 +1,25 @@
+{
+  "name": "RedAmon Lightweight Codespace",
+  "privileged": true,
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "moby": true
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/setup-redamon.sh install",
+  "postStartCommand": "bash .devcontainer/setup-redamon.sh start",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "RedAmon Web UI",
+      "onAutoForward": "notify",
+      "visibility": "private"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-azuretools.vscode-docker"]
+    }
+  }
+}
