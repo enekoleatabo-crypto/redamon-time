@@ -19,12 +19,12 @@ load_credentials() {
     source "$CREDENTIALS_FILE"
   fi
 
-  ADMIN_NAME="${REDAMON_ADMIN_NAME:-${ADMIN_NAME:-Codespace Admin}}"
-  ADMIN_EMAIL="${REDAMON_ADMIN_EMAIL:-${ADMIN_EMAIL:-admin@codespace.local}}"
-  ADMIN_PASSWORD="${REDAMON_ADMIN_PASSWORD:-${ADMIN_PASSWORD:-}}"
+  export ADMIN_NAME="${REDAMON_ADMIN_NAME:-${ADMIN_NAME:-Codespace Admin}}"
+  export ADMIN_EMAIL="${REDAMON_ADMIN_EMAIL:-${ADMIN_EMAIL:-admin@codespace.local}}"
+  export ADMIN_PASSWORD="${REDAMON_ADMIN_PASSWORD:-${ADMIN_PASSWORD:-}}"
 
   if [[ -z "$ADMIN_PASSWORD" ]]; then
-    ADMIN_PASSWORD="$(openssl rand -hex 16)"
+    export ADMIN_PASSWORD="$(openssl rand -hex 16)"
   fi
 
   if (( ${#ADMIN_PASSWORD} < 12 )); then
@@ -41,17 +41,19 @@ save_credentials() {
   chmod 600 "$CREDENTIALS_FILE"
 }
 
-admin_input() {
-  # redamon.sh create-admin asks for name, email, password, and confirmation.
-  printf '%s\n%s\n%s\n%s\n' \
-    "$ADMIN_NAME" "$ADMIN_EMAIL" "$ADMIN_PASSWORD" "$ADMIN_PASSWORD"
-}
-
 ensure_admin() {
   load_credentials
   save_credentials
   echo "Ensuring RedAmon admin account: $ADMIN_EMAIL"
-  admin_input | ./redamon.sh create-admin
+  # redamon.sh supports non-interactive admin creation when all three ADMIN_*
+  # variables are exported. Do not pipe stdin: create-admin reads prompts from
+  # /dev/tty when interactive, while exported variables are its supported
+  # non-interactive path.
+  ./redamon.sh create-admin || {
+    echo "Admin creation did not complete; the stack may still be starting." >&2
+    echo "Re-run: bash .devcontainer/setup-redamon.sh ensure-admin" >&2
+    return 0
+  }
 }
 
 install_redamon() {
@@ -61,10 +63,9 @@ install_redamon() {
   save_credentials
 
   echo "Installing the lightweight RedAmon stack (without GVM or Knowledge Base)..."
-  # The installer may ask for the initial admin at the end; provide the same
-  # saved values non-interactively. The command is intentionally the lightweight
-  # install and does not pass --gvm or --kbase.
-  admin_input | ./redamon.sh install
+  # The installer passes exported ADMIN_* values through to its automatic
+  # ensure_admin call. The command intentionally does not pass --gvm or --kbase.
+  ./redamon.sh install
 
   ensure_admin
 }
